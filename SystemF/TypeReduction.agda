@@ -224,7 +224,9 @@ subst-⇛* [] = []
 subst-⇛* (step ∷ steps) = subst-⇛-⇛ step refl-⇛subst ∷ subst-⇛* steps
 
 diamond : ∀ {m} {τ τ₁ τ₂ : Type m} → τ ⇛ τ₁ → τ ⇛ τ₂ → Σ (Type m) λ τ' → τ₁ ⇛ τ' × τ₂ ⇛ τ'
+{-# CATCHALL #-}
 diamond trefl step₂ = _ , step₂ , trefl
+{-# CATCHALL #-}
 diamond step₁ trefl = _ , trefl , step₁
 diamond (arrow step₁ step₁') (arrow step₂ step₂') =
   let (_ , step₁ , step₂) = diamond step₁ step₂
