@@ -18,8 +18,8 @@ module SubstType {T} (hoist-t : Hoist T Type) where
   subst σ (exists κ τ) = exists κ (subst (lift 1 σ) τ)
   subst σ (lam κ τ) = lam κ (subst (lift 1 σ) τ)
   subst σ (app τ τ') = app (subst σ τ) (subst σ τ')
-  subst σ (record- τs) = record- (substs σ τs)
-  subst σ (variant τs) = variant (substs σ τs)
+  subst σ (prod τ τ') = prod (subst σ τ) (subst σ τ')
+  subst σ (sum τ τ') = sum (subst σ τ) (subst σ τ')
 
   substs σ [] = []
   substs σ (τ ∷ τs) = subst σ τ ∷ substs σ τs
@@ -103,45 +103,21 @@ module SubstsVarExtTypeLemmas {T} (hoist-t : Hoist T Type) where
   app-lifts-substs k [] = refl
   app-lifts-substs k (σ ∷ σs) = cong (subst _) (app-lifts-substs k σs)
 
-  record-lifts-substs : ∀ {m n size} k {τs : Vector (Type (k + m)) size} (σ : Substs T m n) →
-    substs (lifts k σ) (record- τs) ≡ record- (map (substs (lifts k σ)) τs)
-  record-lifts-substs k {τs = τs} [] = cong record- (sym (map-id τs))
-  record-lifts-substs k {τs = τs} (σ ∷ σs) =
-    substs (lifts k (σ ∷ σs)) (record- τs)
-      ≡⟨⟩
-    subst (lift k σ) (substs (lifts k σs) (record- τs))
-      ≡⟨ cong (subst (lift k σ)) (record-lifts-substs k σs) ⟩
-    subst (lift k σ) (record- (map (substs (lifts k σs)) τs))
-      ≡⟨⟩
-    record- (substs-types (lift k σ) (map (substs (lifts k σs)) τs))
-      ≡⟨ cong record- (substs-map (lift k σ) (map (substs (lifts k σs)) τs)) ⟩
-    record- (map (subst (lift k σ)) (map (substs (lifts k σs)) τs))
-      ≡⟨ cong record- (map-map (subst (lift k σ)) (substs (lifts k σs)) τs) ⟩
-    record- (map (substs (lifts k (σ ∷ σs))) τs)
-      ∎
+  prod-lifts-substs : ∀ {m n} k {τ τ' : Type (k + m)} (σ : Substs T m n) →
+    substs (lifts k σ) (prod τ τ') ≡ prod (substs (lifts k σ) τ) (substs (lifts k σ) τ')
+  prod-lifts-substs k [] = refl
+  prod-lifts-substs k (σ ∷ σs) = cong (subst _) (prod-lifts-substs k σs)
 
-  variant-lifts-substs : ∀ {m n size} k {τs : Vector (Type (k + m)) size} (σ : Substs T m n) →
-    substs (lifts k σ) (variant τs) ≡ variant (map (substs (lifts k σ)) τs)
-  variant-lifts-substs k {τs = τs} [] = cong variant (sym (map-id τs))
-  variant-lifts-substs k {τs = τs} (σ ∷ σs) =
-    substs (lifts k (σ ∷ σs)) (variant τs)
-      ≡⟨⟩
-    subst (lift k σ) (substs (lifts k σs) (variant τs))
-      ≡⟨ cong (subst (lift k σ)) (variant-lifts-substs k σs) ⟩
-    subst (lift k σ) (variant (map (substs (lifts k σs)) τs))
-      ≡⟨⟩
-    variant (substs-types (lift k σ) (map (substs (lifts k σs)) τs))
-      ≡⟨ cong variant (substs-map (lift k σ) (map (substs (lifts k σs)) τs)) ⟩
-    variant (map (subst (lift k σ)) (map (substs (lifts k σs)) τs))
-      ≡⟨ cong variant (map-map (subst (lift k σ)) (substs (lifts k σs)) τs) ⟩
-    variant (map (substs (lifts k (σ ∷ σs))) τs)
-      ∎
+  sum-lifts-substs : ∀ {m n} k {τ τ' : Type (k + m)} (σ : Substs T m n) →
+    substs (lifts k σ) (sum τ τ') ≡ sum (substs (lifts k σ) τ) (substs (lifts k σ) τ')
+  sum-lifts-substs k [] = refl
+  sum-lifts-substs k (σ ∷ σs) = cong (subst _) (sum-lifts-substs k σs)
 
 module SubstsVarExtType {T₁ T₂} (hoist₁ : Hoist T₁ Type) (hoist₂ : Hoist T₂ Type) where
   module T₁ = Instantiate (make-instantiate (Hoist.super-var hoist₁) (substitute-type hoist₁))
   module T₂ = Instantiate (make-instantiate (Hoist.super-var hoist₂) (substitute-type hoist₂))
-  module Lemmas₁ = SubstsVarExtTypeLemmas hoist₁
-  module Lemmas₂ = SubstsVarExtTypeLemmas hoist₂
+  module LemmaT₁ = SubstsVarExtTypeLemmas hoist₁
+  module LemmaT₂ = SubstsVarExtTypeLemmas hoist₂
 
   substs-var-ext
     : ∀ {m n} (σ₁ : Substs T₁ m n) (σ₂ : Substs T₂ m n)
@@ -150,75 +126,67 @@ module SubstsVarExtType {T₁ T₂} (hoist₁ : Hoist T₁ Type) (hoist₂ : Hoi
   substs-var-ext σ₁ σ₂ h k (var x) = h k x
   substs-var-ext σ₁ σ₂ h k (arrow τ τ') =
     T₁.substs (T₁.lifts k σ₁) (arrow τ τ')
-      ≡⟨ Lemmas₁.arrow-lifts-substs k σ₁ ⟩
+      ≡⟨ LemmaT₁.arrow-lifts-substs k σ₁ ⟩
     arrow (T₁.substs (T₁.lifts k σ₁) τ) (T₁.substs (T₁.lifts k σ₁) τ')
       ≡⟨ cong₂ arrow (substs-var-ext σ₁ σ₂ h k τ) (substs-var-ext σ₁ σ₂ h k τ') ⟩
     arrow (T₂.substs (T₂.lifts k σ₂) τ) (T₂.substs (T₂.lifts k σ₂) τ')
-      ≡⟨ sym (Lemmas₂.arrow-lifts-substs k σ₂) ⟩
+      ≡⟨ sym (LemmaT₂.arrow-lifts-substs k σ₂) ⟩
     T₂.substs (T₂.lifts k σ₂) (arrow τ τ')
       ∎
   substs-var-ext σ₁ σ₂ h k (all κ τ) =
     T₁.substs (T₁.lifts k σ₁) (all κ τ)
-      ≡⟨ Lemmas₁.all-lifts-substs k σ₁ ⟩
+      ≡⟨ LemmaT₁.all-lifts-substs k σ₁ ⟩
     all κ (T₁.substs (T₁.lifts (succ k) σ₁) τ)
       ≡⟨ cong (all κ) (substs-var-ext σ₁ σ₂ h (succ k) τ) ⟩
     all κ (T₂.substs (T₂.lifts (succ k) σ₂) τ)
-      ≡⟨ sym (Lemmas₂.all-lifts-substs k σ₂) ⟩
+      ≡⟨ sym (LemmaT₂.all-lifts-substs k σ₂) ⟩
     T₂.substs (T₂.lifts k σ₂) (all κ τ)
       ∎
   substs-var-ext σ₁ σ₂ h k (exists κ τ) =
     T₁.substs (T₁.lifts k σ₁) (exists κ τ)
-      ≡⟨ Lemmas₁.exists-lifts-substs k σ₁ ⟩
+      ≡⟨ LemmaT₁.exists-lifts-substs k σ₁ ⟩
     exists κ (T₁.substs (T₁.lifts (succ k) σ₁) τ)
       ≡⟨ cong (exists κ) (substs-var-ext σ₁ σ₂ h (succ k) τ) ⟩
     exists κ (T₂.substs (T₂.lifts (succ k) σ₂) τ)
-      ≡⟨ sym (Lemmas₂.exists-lifts-substs k σ₂) ⟩
+      ≡⟨ sym (LemmaT₂.exists-lifts-substs k σ₂) ⟩
     T₂.substs (T₂.lifts k σ₂) (exists κ τ)
       ∎
   substs-var-ext σ₁ σ₂ h k (lam κ τ) =
     T₁.substs (T₁.lifts k σ₁) (lam κ τ)
-      ≡⟨ Lemmas₁.lam-lifts-substs k σ₁ ⟩
+      ≡⟨ LemmaT₁.lam-lifts-substs k σ₁ ⟩
     lam κ (T₁.substs (T₁.lifts (succ k) σ₁) τ)
       ≡⟨ cong (lam κ) (substs-var-ext σ₁ σ₂ h (succ k) τ) ⟩
     lam κ (T₂.substs (T₂.lifts (succ k) σ₂) τ)
-      ≡⟨ sym (Lemmas₂.lam-lifts-substs k σ₂) ⟩
+      ≡⟨ sym (LemmaT₂.lam-lifts-substs k σ₂) ⟩
     T₂.substs (T₂.lifts k σ₂) (lam κ τ)
       ∎
   substs-var-ext σ₁ σ₂ h k (app τ τ') =
     T₁.substs (T₁.lifts k σ₁) (app τ τ')
-      ≡⟨ Lemmas₁.app-lifts-substs k σ₁ ⟩
+      ≡⟨ LemmaT₁.app-lifts-substs k σ₁ ⟩
     app (T₁.substs (T₁.lifts k σ₁) τ) (T₁.substs (T₁.lifts k σ₁) τ')
       ≡⟨ cong₂ app (substs-var-ext σ₁ σ₂ h k τ) (substs-var-ext σ₁ σ₂ h k τ') ⟩
     app (T₂.substs (T₂.lifts k σ₂) τ) (T₂.substs (T₂.lifts k σ₂) τ')
-      ≡⟨ sym (Lemmas₂.app-lifts-substs k σ₂) ⟩
+      ≡⟨ sym (LemmaT₂.app-lifts-substs k σ₂) ⟩
     T₂.substs (T₂.lifts k σ₂) (app τ τ')
       ∎
-  substs-var-ext σ₁ σ₂ h k (record- τs) =
-    T₁.substs (T₁.lifts k σ₁) (record- τs)
-      ≡⟨ Lemmas₁.record-lifts-substs k σ₁ ⟩
-    record- (map (T₁.substs (T₁.lifts k σ₁)) τs)
-      ≡⟨ cong record- (go τs) ⟩
-    record- (map (T₂.substs (T₂.lifts k σ₂)) τs)
-      ≡⟨ sym (Lemmas₂.record-lifts-substs k σ₂) ⟩
-    T₂.substs (T₂.lifts k σ₂) (record- τs)
+  substs-var-ext σ₁ σ₂ h k (prod τ τ') =
+    T₁.substs (T₁.lifts k σ₁) (prod τ τ')
+      ≡⟨ LemmaT₁.prod-lifts-substs k σ₁ ⟩
+    prod (T₁.substs (T₁.lifts k σ₁) τ) (T₁.substs (T₁.lifts k σ₁) τ')
+      ≡⟨ cong₂ prod (substs-var-ext σ₁ σ₂ h k τ) (substs-var-ext σ₁ σ₂ h k τ') ⟩
+    prod (T₂.substs (T₂.lifts k σ₂) τ) (T₂.substs (T₂.lifts k σ₂) τ')
+      ≡⟨ sym (LemmaT₂.prod-lifts-substs k σ₂) ⟩
+    T₂.substs (T₂.lifts k σ₂) (prod τ τ')
       ∎
-    where
-      go : ∀ {size} (τs : Vector (Type _) size) → map (T₁.substs (T₁.lifts k σ₁)) τs ≡ map (T₂.substs (T₂.lifts k σ₂)) τs
-      go [] = refl
-      go (τ ∷ τs) = cong₂ _∷_ (substs-var-ext σ₁ σ₂ h k τ) (go τs)
-  substs-var-ext σ₁ σ₂ h k (variant τs) =
-    T₁.substs (T₁.lifts k σ₁) (variant τs)
-      ≡⟨ Lemmas₁.variant-lifts-substs k σ₁ ⟩
-    variant (map (T₁.substs (T₁.lifts k σ₁)) τs)
-      ≡⟨ cong variant (go τs) ⟩
-    variant (map (T₂.substs (T₂.lifts k σ₂)) τs)
-      ≡⟨ sym (Lemmas₂.variant-lifts-substs k σ₂) ⟩
-    T₂.substs (T₂.lifts k σ₂) (variant τs)
+  substs-var-ext σ₁ σ₂ h k (sum τ τ') =
+    T₁.substs (T₁.lifts k σ₁) (sum τ τ')
+      ≡⟨ LemmaT₁.sum-lifts-substs k σ₁ ⟩
+    sum (T₁.substs (T₁.lifts k σ₁) τ) (T₁.substs (T₁.lifts k σ₁) τ')
+      ≡⟨ cong₂ sum (substs-var-ext σ₁ σ₂ h k τ) (substs-var-ext σ₁ σ₂ h k τ') ⟩
+    sum (T₂.substs (T₂.lifts k σ₂) τ) (T₂.substs (T₂.lifts k σ₂) τ')
+      ≡⟨ sym (LemmaT₂.sum-lifts-substs k σ₂) ⟩
+    T₂.substs (T₂.lifts k σ₂) (sum τ τ')
       ∎
-    where
-      go : ∀ {size} (τs : Vector (Type _) size) → map (T₁.substs (T₁.lifts k σ₁)) τs ≡ map (T₂.substs (T₂.lifts k σ₂)) τs
-      go [] = refl
-      go (τ ∷ τs) = cong₂ _∷_ (substs-var-ext σ₁ σ₂ h k τ) (go τs)
 
 substitute-self-type : SubstituteSelf Type
 substitute-self-type = record
@@ -234,8 +202,6 @@ module SubstTermType {T} (hoist-t : Hoist T Type) where
   module ST = SubstType hoist-t
 
   subst : ∀ {m m' n} → Subst T m m' → Term m n → Term m' n
-  substs : ∀ {m m' n size} → Subst T m m' → Vector (Term m n) size → Vector (Term m' n) size
-
   subst σ (var x) = Term.var x
   subst σ (lam τ t) = lam (ST.subst σ τ) (subst σ t)
   subst σ (app t t') = app (subst σ t) (subst σ t')
@@ -243,18 +209,12 @@ module SubstTermType {T} (hoist-t : Hoist T Type) where
   subst σ (tapp t τ) = tapp (subst σ t) (ST.subst σ τ)
   subst σ (pack τ t τ') = pack (ST.subst σ τ) (subst σ t) (ST.subst σ τ')
   subst σ (unpack t t') = unpack (subst σ t) (subst (lift 1 σ) t')
-  subst σ (record- ts) = record- (substs σ ts)
-  subst σ (proj t x) = proj (subst σ t) x
-  subst σ (variant x t) = variant x (subst σ t)
-  subst σ (match t ts) = match (subst σ t) (substs σ ts)
-
-  substs σ [] = []
-  substs σ (t ∷ ts) = subst σ t ∷ substs σ ts
-
-  substs-map : ∀ {size m m' n} (σ : Subst T m m') (ts : Vector (Term m n) size)
-    → substs σ ts ≡ map (subst σ) ts
-  substs-map σ [] = refl
-  substs-map σ (t ∷ ts) = cong (_∷_ (subst σ t)) (substs-map σ ts)
+  subst σ (prod t t') = prod (subst σ t) (subst σ t')
+  subst σ (proj₁ t) = proj₁ (subst σ t)
+  subst σ (proj₂ t) = proj₂ (subst σ t)
+  subst σ (left t) = left (subst σ t)
+  subst σ (right t) = right (subst σ t)
+  subst σ (match t t' t'') = match (subst σ t) (subst σ t') (subst σ t'')
 
 Flip : ∀ {A B : Set} → (A → B → Set) → B → A → Set
 Flip f b a = f a b
@@ -289,8 +249,6 @@ weaken-term-type = record
 
 module SubstTerm {T : ℕ → ℕ → Set} (weaken-t : ∀ {n} → Weaken (Flip T n)) (hoist-t : ∀ {m} → Hoist (T m) (Term m)) where
   subst : ∀ {m n n'} → Subst (T m) n n' → Term m n → Term m n'
-  substs : ∀ {m n n' size} → Subst (T m) n n' → Vector (Term m n) size → Vector (Term m n') size
-
   subst σ (var x) = Hoist.hoist hoist-t (lookup σ x)
   subst σ (lam τ t) = lam τ (subst (Hoist.lift hoist-t 1 σ) t)
   subst σ (app t t') = app (subst σ t) (subst σ t')
@@ -298,18 +256,12 @@ module SubstTerm {T : ℕ → ℕ → Set} (weaken-t : ∀ {n} → Weaken (Flip 
   subst σ (tapp t τ) = tapp (subst σ t) τ
   subst σ (pack τ t τ') = pack τ (subst σ t) τ'
   subst σ (unpack t t') = unpack (subst σ t) (subst (Hoist.lift hoist-t 1 (map (Weaken.weaken weaken-t) σ)) t')
-  subst σ (record- ts) = record- (substs σ ts)
-  subst σ (proj t x) = proj (subst σ t) x
-  subst σ (variant x t) = variant x (subst σ t)
-  subst σ (match t ts) = match (subst σ t) (substs (Hoist.lift hoist-t 1 σ) ts)
-
-  substs σ [] = []
-  substs σ (τ ∷ τs) = subst σ τ ∷ substs σ τs
-
-  substs-map : ∀ {m n n' size} (σ : Subst (T m) n n') (ts : Vector (Term m n) size)
-    → substs σ ts ≡ map (subst σ) ts
-  substs-map σ [] = refl
-  substs-map σ (t ∷ ts) = cong (_∷_ (subst σ t)) (substs-map σ ts)
+  subst σ (prod t t') = prod (subst σ t) (subst σ t')
+  subst σ (proj₁ t) = proj₁ (subst σ t)
+  subst σ (proj₂ t) = proj₂ (subst σ t)
+  subst σ (left t) = left (subst σ t)
+  subst σ (right t) = right (subst σ t)
+  subst σ (match t t' t'') = match (subst σ t) (subst (Hoist.lift hoist-t 1 σ) t') (subst (Hoist.lift hoist-t 1 σ) t'')
 
 substitute-term : ∀ {T : ℕ → ℕ → Set} {m} → (∀ {n} → Weaken (Flip T n)) → (∀ {m} → Hoist (T m) (Term m)) → Substitute (T m) (Term m)
 substitute-term weaken-t hoist-t = record

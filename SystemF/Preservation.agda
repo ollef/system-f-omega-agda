@@ -8,6 +8,7 @@ open import SystemF.Syntax
 open import SystemF.Semantics
 import SystemF.Substitution
 open import SystemF.Typing
+import SystemF.TypeReduction as TypeReduction
 
 module TypeRenaming where
   open Instantiate SystemF.Substitution.instantiate-fin-type hiding (var; weaken) public
@@ -58,25 +59,14 @@ module TypeRenaming where
     → Δ ⊢ τ ∶ κ
     → σ ∶ Δ ⇒ Δ'
     → Δ' ⊢ subst σ τ ∶ κ
-
-  preserves-kinds : ∀ {size m m' Δ Δ'} {τs : Vector (Type m) size} (σ : Subst Fin m m')
-    → All (λ τ → Δ ⊢ τ ∶ star) τs
-    → σ ∶ Δ ⇒ Δ'
-    → All (λ τ → Δ' ⊢ τ ∶ star) (map (subst σ) τs)
-
   preserves-kind σ var h = lookup-⇒ _ h
   preserves-kind σ (arrow d d') h = arrow (preserves-kind σ d h) (preserves-kind σ d' h)
   preserves-kind σ (all d) h = all (preserves-kind (lift 1 σ) d (lift-⇒ (_ ∷ []) h))
   preserves-kind σ (exists d) h = exists (preserves-kind (lift 1 σ) d (lift-⇒ (_ ∷ []) h))
   preserves-kind σ (lam d) h = lam (preserves-kind (lift 1 σ) d (lift-⇒ (_ ∷ []) h))
   preserves-kind σ (app d d') h = app (preserves-kind σ d h) (preserves-kind σ d' h)
-  preserves-kind σ (record- ds) h =
-    record- (Eq.subst (All _) (sym (renames-map σ _)) (preserves-kinds σ ds h))
-  preserves-kind σ (variant ds) h =
-    variant (Eq.subst (All _) (sym (renames-map σ _)) (preserves-kinds σ ds h))
-
-  preserves-kinds σ [] h = []
-  preserves-kinds σ (d ∷ ds) h = preserves-kind σ d h ∷ preserves-kinds σ ds h
+  preserves-kind σ (prod d d') h = prod (preserves-kind σ d h) (preserves-kind σ d' h)
+  preserves-kind σ (sum d d') h = sum (preserves-kind σ d h) (preserves-kind σ d' h)
 
   map-weaken-renaming-commutes : ∀ {m m' n} {σ : Subst Fin m m'} {Γ : TermContext m n}
     → map weaken (map (subst σ) Γ)
@@ -139,24 +129,29 @@ module TypeSubst where
     → σ ∶ Δ ⇒ Δ'
     → Δ' ⊢ subst σ τ ∶ κ
 
-  preserves-kinds : ∀ {size m m' Δ Δ'} {τs : Vector (Type m) size} (σ : Subst Type m m')
-    → All (λ τ → Δ ⊢ τ ∶ star) τs
-    → σ ∶ Δ ⇒ Δ'
-    → All (λ τ → Δ' ⊢ τ ∶ star) (map (subst σ) τs)
-
   preserves-kind σ var h = lookup-⇒ _ h
   preserves-kind σ (arrow d d') h = arrow (preserves-kind σ d h) (preserves-kind σ d' h)
   preserves-kind σ (all d) h = all (preserves-kind (lift 1 σ) d (lift-⇒ h))
   preserves-kind σ (exists d) h = exists (preserves-kind (lift 1 σ) d (lift-⇒ h))
   preserves-kind σ (lam d) h = lam (preserves-kind (lift 1 σ) d (lift-⇒ h))
   preserves-kind σ (app d d') h = app (preserves-kind σ d h) (preserves-kind σ d' h)
-  preserves-kind σ (record- ds) h =
-    record- (Eq.subst (All _) (sym (substs-map σ _)) (preserves-kinds σ ds h))
-  preserves-kind σ (variant ds) h =
-    variant (Eq.subst (All _) (sym (substs-map σ _)) (preserves-kinds σ ds h))
+  preserves-kind σ (prod d d') h = prod (preserves-kind σ d h) (preserves-kind σ d' h)
+  preserves-kind σ (sum d d') h = sum (preserves-kind σ d h) (preserves-kind σ d' h)
 
-  preserves-kinds σ [] h = []
-  preserves-kinds σ (d ∷ ds) h = preserves-kind σ d h ∷ preserves-kinds σ ds h
+  preserves-equality : ∀ {m m' τ τ'} (σ : Subst Type m m')
+    → τ ≡ₜ τ'
+    → subst σ τ ≡ₜ subst σ τ'
+  preserves-equality σ trefl = trefl
+  preserves-equality σ (tsym eq) = tsym (preserves-equality σ eq)
+  preserves-equality σ (ttrans eq eq') = ttrans (preserves-equality σ eq) (preserves-equality σ eq')
+  preserves-equality σ (arrow eq eq') = arrow (preserves-equality σ eq) (preserves-equality σ eq')
+  preserves-equality σ (all eq) = all (preserves-equality (lift 1 σ) eq)
+  preserves-equality σ (exists eq) = exists (preserves-equality (lift 1 σ) eq)
+  preserves-equality σ (lam eq) = lam (preserves-equality (lift 1 σ) eq)
+  preserves-equality σ (app eq eq') = app (preserves-equality σ eq) (preserves-equality σ eq')
+  preserves-equality σ (app-lam {τ = τ} {τ' = τ'}) = Eq.subst (_≡ₜ_ _) (sym (Tp.subst-instantiate τ τ')) app-lam
+  preserves-equality σ (prod eq eq') = prod (preserves-equality σ eq) (preserves-equality σ eq')
+  preserves-equality σ (sum eq eq') = sum (preserves-equality σ eq) (preserves-equality σ eq')
 
   map-weaken-subst-commutes : ∀ {m m' n} {σ : Subst Type m m'} {Γ : TermContext m n}
     → map weaken (map (subst σ) Γ)
@@ -176,20 +171,10 @@ module TermTypeRenaming where
   module _ {n : ℕ} where
     open Instantiate (SystemF.Substitution.instantiate-fin-term-type {n = n}) hiding (var) public
 
-  renames-map : ∀ {size m m' n} (σ : Subst Fin m m') (ts : Vector (Term m n) size)
-    → SystemF.Substitution.SubstTermType.substs SystemF.Substitution.hoist-fin-type σ ts ≡ map (subst σ) ts
-  renames-map = SystemF.Substitution.SubstTermType.substs-map SystemF.Substitution.hoist-fin-type
-
   preserves-type : ∀ {m m' n Δ Δ' t τ} {Γ : TermContext m n} (σ : Subst Fin m m')
     → Δ ⹁ Γ ⊢ t ∶ τ
     → σ ∶ Δ ⇒ Δ'
     → Δ' ⹁ map (TypeRenaming.subst σ) Γ ⊢ subst σ t ∶ TypeRenaming.subst σ τ
-
-  preserves-types : ∀ {m m' size n Δ Δ'} {ts : Vector _ size} {τs} {Γ : TermContext m n} (σ : Subst Fin m m')
-    → ZipWith (λ t τ → Δ ⹁ Γ ⊢ t ∶ τ) ts τs
-    → σ ∶ Δ ⇒ Δ'
-    → ZipWith (λ t τ → Δ' ⹁ map (TypeRenaming.subst σ) Γ ⊢ t ∶ τ) (map (subst σ) ts) (map (TypeRenaming.subst σ) τs)
-
   preserves-type {Γ = Γ} σ var h =
     Eq.subst (λ p → _ ⹁ _ ⊢ _ ∶ p) (lookup-map (TypeRenaming.subst σ) Γ _) var
   preserves-type σ (lam d) h =
@@ -211,26 +196,13 @@ module TermTypeRenaming where
         (sym (Tp.weaken-renaming-commutes τ'))
         (preserves-type (TypeRenaming.lift 1 σ) d' (lift-⇒ (κ ∷ []) h))
       )
-  preserves-type σ (record- {τs = τs} {ts = ts} ds) h =
-    record-
-      (subst₂
-        (λ p q → ZipWith _ p q)
-        (sym (renames-map σ ts))
-        (sym (TypeRenaming.renames-map σ τs))
-        (preserves-types σ ds h))
-  preserves-type σ (proj {τs = τs} {x = x} d) h =
-    Eq.subst
-      (λ p → _ ⹁ _ ⊢ _ ∶ p)
-      (trans (cong (λ p → lookup p x) (TypeRenaming.renames-map σ τs)) (lookup-map (TypeRenaming.subst σ) τs x))
-      (proj (preserves-type σ d h))
-  preserves-type σ (variant {τs = τs} {x = x} d) h =
-    variant
-      (Eq.subst (λ p → _ ⹁ _ ⊢ _ ∶ p)
-        (trans (sym (lookup-map (TypeRenaming.subst σ) τs _)) (cong (λ p → lookup p x) (sym (TypeRenaming.renames-map σ τs))))
-        (preserves-type σ d h))
-
-  preserves-types σ [] _ = []
-  preserves-types σ (d ∷ ds) l = preserves-type σ d l ∷ preserves-types σ ds l
+  preserves-type σ (prod d d') h = prod (preserves-type σ d h) (preserves-type σ d' h)
+  preserves-type σ (proj₁ d) h = proj₁ (preserves-type σ d h)
+  preserves-type σ (proj₂ d) h = proj₂ (preserves-type σ d h)
+  preserves-type σ (left d) h = left (preserves-type σ d h)
+  preserves-type σ (right d) h = right (preserves-type σ d h)
+  preserves-type σ (match d d₁ d₂) h = match (preserves-type σ d h) (preserves-type σ d₁ h) (preserves-type σ d₂ h)
+  preserves-type σ (type-eq d eq) h = type-eq (preserves-type σ d h) (TypeReduction.renaming-≡ₜ eq)
 
 module TermTypeSubst where
   open TypeSubst using (_∶_⇒_; lift-⇒; preserves-kind; module Tp) public
@@ -238,20 +210,10 @@ module TermTypeSubst where
     open Instantiate (SystemF.Substitution.instantiate-type-term-type {n = n}) using (subst) public
     open Weaken (SystemF.Substitution.weaken-term-type {n = n}) public
 
-  substs-map : ∀ {size m m' n} (σ : Subst Type m m') (ts : Vector (Term m n) size)
-    → SystemF.Substitution.SubstTermType.substs SystemF.Substitution.hoist-type-type σ ts ≡ map (subst σ) ts
-  substs-map = SystemF.Substitution.SubstTermType.substs-map SystemF.Substitution.hoist-type-type
-
   preserves-type : ∀ {m m' n Δ Δ' t τ} {Γ : TermContext m n} (σ : Subst Type m m')
     → Δ ⹁ Γ ⊢ t ∶ τ
     → σ ∶ Δ ⇒ Δ'
     → Δ' ⹁ map (TypeSubst.subst σ) Γ ⊢ subst σ t ∶ TypeSubst.subst σ τ
-
-  preserves-types : ∀ {m m' size n Δ Δ'} {ts : Vector _ size} {τs} {Γ : TermContext m n} (σ : Subst Type m m')
-    → ZipWith (λ t τ → Δ ⹁ Γ ⊢ t ∶ τ) ts τs
-    → σ ∶ Δ ⇒ Δ'
-    → ZipWith (λ t τ → Δ' ⹁ map (TypeSubst.subst σ) Γ ⊢ t ∶ τ) (map (subst σ) ts) (map (TypeSubst.subst σ) τs)
-
   preserves-type {Γ = Γ} σ var h =
     Eq.subst (λ p → _ ⹁ _ ⊢ _ ∶ p) (lookup-map (TypeSubst.subst σ) Γ _) var
   preserves-type σ (lam d) h =
@@ -273,35 +235,19 @@ module TermTypeSubst where
         (sym (Tp.weaken-commutes τ'))
         (preserves-type (TypeSubst.lift 1 σ) d' (lift-⇒ h))
       )
-  preserves-type σ (record- {τs = τs} {ts = ts} ds) h =
-    record-
-      (subst₂
-        (λ p q → ZipWith _ p q)
-        (sym (substs-map σ ts))
-        (sym (TypeSubst.substs-map σ τs))
-        (preserves-types σ ds h))
-  preserves-type σ (proj {τs = τs} {x = x} d) h =
-    Eq.subst
-      (λ p → _ ⹁ _ ⊢ _ ∶ p)
-      (trans (cong (λ p → lookup p x) (TypeSubst.substs-map σ τs)) (lookup-map (TypeSubst.subst σ) τs x))
-      (proj (preserves-type σ d h))
-  preserves-type σ (variant {τs = τs} {x = x} d) h =
-    variant
-      (Eq.subst (λ p → _ ⹁ _ ⊢ _ ∶ p)
-        (trans (sym (lookup-map (TypeSubst.subst σ) τs _)) (cong (λ p → lookup p x) (sym (TypeSubst.substs-map σ τs))))
-        (preserves-type σ d h))
-
-  preserves-types σ [] _ = []
-  preserves-types σ (d ∷ ds) l = preserves-type σ d l ∷ preserves-types σ ds l
+  preserves-type σ (prod d d') h = prod (preserves-type σ d h) (preserves-type σ d' h)
+  preserves-type σ (proj₁ d) h = proj₁ (preserves-type σ d h)
+  preserves-type σ (proj₂ d) h = proj₂ (preserves-type σ d h)
+  preserves-type σ (left d) h = left (preserves-type σ d h)
+  preserves-type σ (right d) h = right (preserves-type σ d h)
+  preserves-type σ (match d d₁ d₂) h = match (preserves-type σ d h) (preserves-type σ d₁ h) (preserves-type σ d₂ h)
+  preserves-type σ (type-eq d eq) h =
+    type-eq (preserves-type σ d h) (TypeSubst.preserves-equality σ eq)
 
 module TermRenaming where
   module _ {m : ℕ} where
     open Instantiate (SystemF.Substitution.instantiate-fin-term {m = m}) hiding (var; lift; weaken) public
   open Var var-fin hiding (var; id; weakening)
-
-  renames-map : ∀ {size m n n'} (σ : Subst Fin n n') (ts : Vector (Term m n) size)
-    → SystemF.Substitution.SubstTerm.substs SystemF.Substitution.weaken-const-fin SystemF.Substitution.hoist-fin-term σ ts ≡ map (subst σ) ts
-  renames-map = SystemF.Substitution.SubstTerm.substs-map SystemF.Substitution.weaken-const-fin SystemF.Substitution.hoist-fin-term
 
   _⊢_∶_⇒_ : ∀ {m n n'} (Δ : TypeContext m) (σ : Subst Fin n n') (Γ : TermContext m n) (Γ' : TermContext m n') → Set
   Δ ⊢ σ ∶ Γ ⇒ Γ' = ZipWith (λ x τ → Δ ⹁ Γ' ⊢ var x ∶ τ) σ Γ
@@ -312,6 +258,7 @@ module TermRenaming where
     → Δ ⹁ Γ ⊢ var x ∶ τ
     → Δ ⹁ (τ' ∷ Γ) ⊢ var (weaken x) ∶ τ
   weaken-⊢ var = var
+  weaken-⊢ (type-eq d eq) = type-eq (weaken-⊢ d) eq
 
   weaken-⇒ : ∀ {m n n'} {Δ : TypeContext m} {σ : Subst Fin n n'} {Γ : TermContext m n} {Γ' : TermContext m n'} {τ}
     → Δ ⊢ σ ∶ Γ ⇒ Γ'
@@ -347,11 +294,6 @@ module TermRenaming where
     → Δ ⹁ Γ ⊢ t ∶ τ
     → Δ ⊢ σ ∶ Γ ⇒ Γ'
     → Δ ⹁ Γ' ⊢ subst σ t ∶ τ
-  preserves-types : ∀ {m n n' len} (σ : Subst Fin n n'){Δ} {Γ : TermContext m n} {Γ' : TermContext m n'} {τs : Vector (Type m) len} {ts : Vector (Term m n) len}
-    → ZipWith (λ t τ → Δ ⹁ Γ ⊢ t ∶ τ) ts τs
-    → Δ ⊢ σ ∶ Γ ⇒ Γ'
-    → ZipWith (λ t τ → Δ ⹁ Γ' ⊢ t ∶ τ) (map (subst σ) ts) τs
-
   preserves-type σ var h = lookup-⇒ _ h
   preserves-type σ (lam d) h = lam (preserves-type (lift 1 σ) d (lift-⇒ h))
   preserves-type σ (app d d') h = app (preserves-type σ d h) (preserves-type σ d' h)
@@ -359,20 +301,17 @@ module TermRenaming where
   preserves-type σ (tapp d d') h = tapp (preserves-type σ d h) d'
   preserves-type σ (pack d d') h = pack (preserves-type σ d h) d'
   preserves-type σ (unpack d d') h = unpack (preserves-type σ d h) (preserves-type (lift 1 (map (λ x → x) σ)) d' (lift-⇒ (lift-type-⇒ h)))
-  preserves-type σ (record- ds) h = record- (Eq.subst (λ p → ZipWith _ p _) (sym (renames-map σ _)) (preserves-types σ ds h))
-  preserves-type σ (proj d) h = proj (preserves-type σ d h)
-  preserves-type σ (variant d) h = variant (preserves-type σ d h)
-
-  preserves-types σ [] _ = []
-  preserves-types σ (d ∷ ds) l = preserves-type σ d l ∷ preserves-types σ ds l
+  preserves-type σ (prod d d') h = prod (preserves-type σ d h) (preserves-type σ d' h)
+  preserves-type σ (proj₁ d) h = proj₁ (preserves-type σ d h)
+  preserves-type σ (proj₂ d) h = proj₂ (preserves-type σ d h)
+  preserves-type σ (left d) h = left (preserves-type σ d h)
+  preserves-type σ (right d) h = right (preserves-type σ d h)
+  preserves-type σ (match d d₁ d₂) h = match (preserves-type σ d h) (preserves-type (lift 1 σ) d₁ (lift-⇒ h)) (preserves-type (lift 1 σ) d₂ (lift-⇒ h))
+  preserves-type σ (type-eq d eq) h = type-eq (preserves-type σ d h) eq
 
 module TermSubst where
   module _ {m : ℕ} where
     open Instantiate (SystemF.Substitution.instantiate-term-term {m = m}) hiding (var) public
-
-  substs-map : ∀ {size m n n'} (σ : Subst (Term m) n n') (ts : Vector (Term m n) size)
-    → SystemF.Substitution.SubstTerm.substs SystemF.Substitution.weaken-term-type SystemF.Substitution.hoist-term-term σ ts ≡ map (subst σ) ts
-  substs-map = SystemF.Substitution.SubstTerm.substs-map SystemF.Substitution.weaken-term-type SystemF.Substitution.hoist-term-term
 
   _⊢_∶_⇒_ : ∀ {m n n'} (Δ : TypeContext m) (σ : Subst (Term m) n n') (Γ : TermContext m n) (Γ' : TermContext m n') → Set
   Δ ⊢ σ ∶ Γ ⇒ Γ' = ZipWith (λ t τ → Δ ⹁ Γ' ⊢ t ∶ τ) σ Γ
@@ -411,11 +350,6 @@ module TermSubst where
     → Δ ⹁ Γ ⊢ t ∶ τ
     → Δ ⊢ σ ∶ Γ ⇒ Γ'
     → Δ ⹁ Γ' ⊢ subst σ t ∶ τ
-  preserves-types : ∀ {m n n' len} (σ : Subst (Term m) n n'){Δ} {Γ : TermContext m n} {Γ' : TermContext m n'} {τs : Vector (Type m) len} {ts : Vector (Term m n) len}
-    → ZipWith (λ t τ → Δ ⹁ Γ ⊢ t ∶ τ) ts τs
-    → Δ ⊢ σ ∶ Γ ⇒ Γ'
-    → ZipWith (λ t τ → Δ ⹁ Γ' ⊢ t ∶ τ) (map (subst σ) ts) τs
-
   preserves-type σ var h = lookup-⇒ _ h
   preserves-type σ (lam d) h = lam (preserves-type (lift 1 σ) d (lift-⇒ h))
   preserves-type σ (app d d') h = app (preserves-type σ d h) (preserves-type σ d' h)
@@ -423,43 +357,47 @@ module TermSubst where
   preserves-type σ (tapp d d') h = tapp (preserves-type σ d h) d'
   preserves-type σ (pack d d') h = pack (preserves-type σ d h) d'
   preserves-type σ (unpack d d') h = unpack (preserves-type σ d h) (preserves-type (lift 1 (map TermTypeSubst.weaken σ)) d' (lift-⇒ (lift-type-⇒ h)))
-  preserves-type σ (record- ds) h = record- (Eq.subst (λ p → ZipWith _ p _) (sym (substs-map σ _)) (preserves-types σ ds h))
-  preserves-type σ (proj d) h = proj (preserves-type σ d h)
-  preserves-type σ (variant d) h = variant (preserves-type σ d h)
-
-  preserves-types σ [] _ = []
-  preserves-types σ (d ∷ ds) l = preserves-type σ d l ∷ preserves-types σ ds l
+  preserves-type σ (prod d d') h = prod (preserves-type σ d h) (preserves-type σ d' h)
+  preserves-type σ (proj₁ d) h = proj₁ (preserves-type σ d h)
+  preserves-type σ (proj₂ d) h = proj₂ (preserves-type σ d h)
+  preserves-type σ (left d) h = left (preserves-type σ d h)
+  preserves-type σ (right d) h = right (preserves-type σ d h)
+  preserves-type σ (match d d₁ d₂) h = match (preserves-type σ d h) (preserves-type (lift 1 σ) d₁ (lift-⇒ h)) (preserves-type (lift 1 σ) d₂ (lift-⇒ h))
+  preserves-type σ (type-eq d eq) h = type-eq (preserves-type σ d h) eq
 
 preservation : ∀ {t t' τ}
   → [] ⹁ [] ⊢ t ∶ τ
   → t ⟶ t'
   → [] ⹁ [] ⊢ t' ∶ τ
-preservation var ()
-preservation (lam d) ()
 preservation (app d d') (app₁ step) = app (preservation d step) d'
-preservation (app d d') (app₂ x step) = app d (preservation d' step)
-preservation (app (lam d) d') (lam-app x) = TermSubst.preserves-type (TermSubst.instantiation _) d (d' ∷ [])
-preservation (tlam d) ()
+preservation (app d d') (app₂ v step) = app d (preservation d' step)
+preservation (app d d') (app-lam v) =
+  let eq , d'' = TypeReduction.lam-inversion d trefl
+  in TermSubst.preserves-type (TermSubst.instantiation _) d'' (type-eq d' (tsym eq) ∷ [])
 preservation (tapp d d') (tapp step) = tapp (preservation d step) d'
-preservation (tapp (tlam d) d') tlam-tapp = TermTypeSubst.preserves-type (TypeSubst.instantiation _) d (d' ∷ [])
+preservation (tapp d d') tapp-tlam with TypeReduction.tlam-inversion d trefl
+... | refl , d'' = TermTypeSubst.preserves-type (TypeSubst.instantiation _) d'' (d' ∷ [])
 preservation (pack d d') (pack step) = pack (preservation d step) d'
 preservation (unpack d d') (unpack step) = unpack (preservation d step) d'
-preservation (unpack (pack d d') d'') (unpack-pack {τ = τ} {τ' = τ'} x) =
+preservation (unpack d d') (unpack-pack v) with TypeReduction.pack-inversion d trefl
+... | refl , eq , d'' , d''' =
   TermSubst.preserves-type
     (TermSubst.instantiation _)
     (Eq.subst
       (λ p → _ ⹁ _ ⊢ _ ∶ p)
-      TypeSubst.Tp.instantiate-weaken
-      (TermTypeSubst.preserves-type (TypeSubst.instantiation τ) d'' (d' ∷ []))) (d ∷ [])
-preservation (record- ds) (record- {i = i} vs step) = record- (lemma ds i step)
-  where
-    lemma : ∀ {n ts τs t'}
-      → ZipWith (λ t τ → [] ⹁ [] ⊢ t ∶ τ) ts τs
-      → (i : Fin n)
-      → lookup ts i ⟶ t'
-      → ZipWith (λ t τ → [] ⹁ [] ⊢ t ∶ τ) (update i t' ts) τs
-    lemma (d ∷ ds) zero step = preservation d step ∷ ds
-    lemma (d ∷ ds) (succ i) step = d ∷ lemma ds i step
-preservation (proj d) (proj step) = proj (preservation d step)
-preservation (proj (record- ds)) (proj-record {i = i} vs) = lookup-zip-with ds i
-preservation (variant d) (variant step) = variant (preservation d step)
+       TypeSubst.Tp.instantiate-weaken
+      (TermTypeSubst.preserves-type (TypeSubst.instantiation _) d' (d''' ∷ []))) (type-eq d'' (TypeReduction.subst-≡ₜ eq)  ∷ [])
+preservation (prod d d') (prod₁ step) = prod (preservation d step) d'
+preservation (prod d d') (prod₂ v step) = prod d (preservation d' step)
+preservation (proj₁ d) (proj₁ step) = proj₁ (preservation d step)
+preservation (proj₁ d) (proj₁-prod v v') = TypeReduction.prod-inversion d trefl .fst
+preservation (proj₂ d) (proj₂ step) = proj₂ (preservation d step)
+preservation (proj₂ d) (proj₂-prod v v') = TypeReduction.prod-inversion d trefl .snd
+preservation (left d) (left step) = left (preservation d step)
+preservation (right d) (right step) = right (preservation d step)
+preservation (match d d₁ d₂) (match step) = match (preservation d step) d₁ d₂
+preservation (match d d₁ d₂) (match-left v) =
+  TermSubst.preserves-type (TermSubst.instantiation _) d₁ (TypeReduction.left-inversion d trefl ∷ [])
+preservation (match d d₁ d₂) (match-right v) =
+  TermSubst.preserves-type (TermSubst.instantiation _) d₂ (TypeReduction.right-inversion d trefl ∷ [])
+preservation (type-eq d eq) step = type-eq (preservation d step) eq
