@@ -51,7 +51,7 @@ _++_ : ∀ {A m n} → Vector A m → Vector A n → Vector A (m + n)
 [] ++ ys = ys
 (x ∷ xs) ++ ys = x ∷ (xs ++ ys)
 
-infixr 6 _++_
+infixr 4 _++_
 
 take : ∀ {A m} (n : Fin m) → Vector A m → Vector A (toℕ n)
 take zero (x ∷ xs) = []

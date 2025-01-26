@@ -20,23 +20,35 @@ data _⇛_ {m} : Type m → Type m → Set where
   prod : ∀ {τ₁ τ₁' τ₂ τ₂'} → τ₁ ⇛ τ₁' → τ₂ ⇛ τ₂' → prod τ₁ τ₂ ⇛ prod τ₁' τ₂'
   sum : ∀ {τ₁ τ₁' τ₂ τ₂'} → τ₁ ⇛ τ₁' → τ₂ ⇛ τ₂' → sum τ₁ τ₂ ⇛ sum τ₁' τ₂'
 
+infix 3 _⇛_
+
 data _⇛*_ {m} : Type m → Type m → Set where
   [] : ∀ {τ} → τ ⇛* τ
   _∷_ : ∀ {τ₁ τ₂ τ₃} → τ₁ ⇛ τ₂ → τ₂ ⇛* τ₃ → τ₁ ⇛* τ₃
 
+infix 3 _⇛*_
+infix 5 _∷_
+
 _++⇛*_ : ∀ {m} {τ₁ τ₂ τ₃ : Type m} → τ₁ ⇛* τ₂ → τ₂ ⇛* τ₃ → τ₁ ⇛* τ₃
 [] ++⇛* steps' = steps'
 (step ∷ steps) ++⇛* steps' = step ∷ (steps ++⇛* steps')
+
+infix 4 _++⇛*_
 
 data _⇔*_ {m} : Type m → Type m → Set where
   base : ∀ {τ τ'} → τ ⇛ τ' → τ ⇔* τ'
   tsym : ∀ {τ τ'} → τ ⇔* τ' → τ' ⇔* τ
   ttrans : ∀ {τ₁ τ₂ τ₃} → τ₁ ⇔* τ₂ → τ₂ ⇔* τ₃ → τ₁ ⇔* τ₃
 
+infix 3 _⇔*_
+
 data _≡flat_ {m} : Type m → Type m → Set where
   [] : ∀ {τ} → τ ≡flat τ
   _∷_ : ∀ {τ₁ τ₂ τ₃} → τ₁ ⇛ τ₂ → τ₂ ≡flat τ₃ → τ₁ ≡flat τ₃
   _∷sym_ : ∀ {τ₁ τ₂ τ₃} → τ₂ ⇛ τ₁ → τ₂ ≡flat τ₃ → τ₁ ≡flat τ₃
+
+infix 3 _≡flat_
+infix 5 _∷sym_
 
 flat-snoc : ∀ {m} {τ₁ τ₂ τ₃ : Type m} → τ₁ ≡flat τ₂ → τ₂ ⇛ τ₃ → τ₁ ≡flat τ₃
 flat-snoc [] step = step ∷ []
@@ -144,6 +156,8 @@ type-reductions-equality (step ∷ steps) = ttrans (type-reduction-equality step
 
 _⇛subst_ : ∀ {m m'} (σ σ' : Subst Type m m') → Set
 σ ⇛subst σ' = ZipWith _⇛_ σ σ'
+
+infix 3 _⇛subst_
 
 renaming-⇛ : ∀ {m m'} {τ τ'} {σ : Subst Fin m m'} → τ ⇛ τ' → Renaming.subst σ τ ⇛ Renaming.subst σ τ'
 renaming-⇛ trefl = trefl

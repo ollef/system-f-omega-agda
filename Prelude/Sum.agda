@@ -4,4 +4,4 @@ data _⊎_ (A B : Set) : Set where
   inl : A → A ⊎ B
   inr : B → A ⊎ B
 
-infixr 4 _⊎_
+infixr 2 _⊎_

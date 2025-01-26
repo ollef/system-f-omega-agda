@@ -46,6 +46,8 @@ data _≡ₜ_ {m} : Type m → Type m → Set where
   prod : ∀ {τ₁ τ₁' τ₂ τ₂'} → τ₁ ≡ₜ τ₁' → τ₂ ≡ₜ τ₂' → prod τ₁ τ₂ ≡ₜ prod τ₁' τ₂'
   sum : ∀ {τ₁ τ₁' τ₂ τ₂'} → τ₁ ≡ₜ τ₁' → τ₂ ≡ₜ τ₂' → sum τ₁ τ₂ ≡ₜ sum τ₁' τ₂'
 
+infix 3 _≡ₜ_
+
 data _⹁_⊢_∶_ {m n} (Δ : TypeContext m) (Γ : TermContext m n) : Term m n → Type m → Set where
   var : ∀ {v}
     → Δ ⹁ Γ ⊢ var v ∶ lookup Γ v

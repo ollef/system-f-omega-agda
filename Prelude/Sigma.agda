@@ -5,4 +5,4 @@ open import Agda.Builtin.Sigma public
 _×_ : Set → Set → Set
 A × B = Σ A (λ _ → B)
 
-infixr 4 _×_
+infixr 2 _×_
