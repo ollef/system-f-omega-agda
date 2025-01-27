@@ -416,15 +416,6 @@ pack-inversion (pack d d') eq with confluence-≡ₜ eq
 ... | _ , refl , steps₁ | _ , refl , steps₁' = refl , ttrans (type-reductions-equality steps₁) (tsym (type-reductions-equality steps₁')) , d , d'
 pack-inversion (type-eq d x) eq = pack-inversion d (ttrans x eq)
 
-data SameHeads {m} : Type m → Type m → Set where
-  arrow : ∀ {τ₁ τ₂ τ₁' τ₂'} → SameHeads (arrow τ₁ τ₂) (arrow τ₁' τ₂')
-  all : ∀ {κ τ τ'} → SameHeads (all κ τ) (all κ τ')
-  exists : ∀ {κ τ τ'} → SameHeads (exists κ τ) (exists κ τ')
-  lam : ∀ {κ τ τ'} → SameHeads (lam κ τ) (lam κ τ')
-  app : ∀ {τ₁ τ₂ τ₁' τ₂'} → SameHeads (app τ₁ τ₂) (app τ₁' τ₂')
-  prod : ∀ {τ₁ τ₂ τ₁' τ₂'} → SameHeads (prod τ₁ τ₂) (prod τ₁' τ₂')
-  sum : ∀ {τ₁ τ₂ τ₁' τ₂'} → SameHeads (sum τ₁ τ₂) (sum τ₁' τ₂')
-
 ¬-all-≡ₜ-arrow : ∀ {m κ τ₁} {τ₂ τ₃ : Type m} → ¬ (all κ τ₁ ≡ₜ arrow τ₂ τ₃)
 ¬-all-≡ₜ-arrow eq with confluence-≡ₜ eq
 ... | _ , all-steps , arrow-steps with all-preserved all-steps | arrow-preserved arrow-steps
