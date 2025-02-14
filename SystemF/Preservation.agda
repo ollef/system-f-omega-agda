@@ -51,10 +51,6 @@ module TypeRenaming where
   lookup-⇒ zero (d ∷ _) = d
   lookup-⇒ (succ v) (_ ∷ ds) = lookup-⇒ v ds
 
-  renames-map : ∀ {size m m'} (σ : Subst Fin m m') (τs : Vector (Type m) size)
-    → SystemF.Substitution.SubstType.substs SystemF.Substitution.hoist-fin-type σ τs ≡ map (subst σ) τs
-  renames-map = SystemF.Substitution.SubstType.substs-map SystemF.Substitution.hoist-fin-type
-
   preserves-kind : ∀ {m m' Δ Δ' κ τ} (σ : Subst Fin m m')
     → Δ ⊢ τ ∶ κ
     → σ ∶ Δ ⇒ Δ'
@@ -119,10 +115,6 @@ module TypeSubst where
     → Δ' ⊢ lookup σ v ∶ lookup Δ v
   lookup-⇒ zero (d ∷ _) = d
   lookup-⇒ (succ v) (_ ∷ ds) = lookup-⇒ v ds
-
-  substs-map : ∀ {size m m'} (σ : Subst Type m m') (τs : Vector (Type m) size)
-    → SystemF.Substitution.SubstType.substs SystemF.Substitution.hoist-type-type σ τs ≡ map (subst σ) τs
-  substs-map = SystemF.Substitution.SubstType.substs-map SystemF.Substitution.hoist-type-type
 
   preserves-kind : ∀ {m m' Δ Δ' κ τ} (σ : Subst Type m m')
     → Δ ⊢ τ ∶ κ
