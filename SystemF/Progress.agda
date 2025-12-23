@@ -29,7 +29,7 @@ module CanonicalForms where
     → Δ ⹁ [] ⊢ t ∶ τ
     → τ ≡ₜ all κ τ'
     → Σ (Kind × Term (succ m) 0) λ (κ' , t') → t ≡ tlam κ' t'
-  all-tlam lam (lam d) eq = absurd (TypeReduction.¬-all-≡ₜ-arrow (tsym eq))
+  all-tlam lam (lam d _) eq = absurd (TypeReduction.¬-all-≡ₜ-arrow (tsym eq))
   all-tlam lam (type-eq d eq') eq = all-tlam lam d (ttrans eq' eq)
   all-tlam tlam _ eq = _ , refl
   all-tlam (pack v) (pack d d') eq = absurd (TypeReduction.¬-exists-≡ₜ-all eq)
@@ -46,7 +46,7 @@ module CanonicalForms where
     → Δ ⹁ [] ⊢ t ∶ τ
     → τ ≡ₜ exists κ τ'
     → Σ (Type _ × Term _ _ × Kind × Type _) λ (τ₁ , t' , κ' , τ₂) → Value t' × (t ≡ pack τ₁ t' (exists κ' τ₂))
-  exists-pack lam (lam d) eq = absurd (TypeReduction.¬-exists-≡ₜ-arrow (tsym eq))
+  exists-pack lam (lam d _) eq = absurd (TypeReduction.¬-exists-≡ₜ-arrow (tsym eq))
   exists-pack lam (type-eq d eq') eq = exists-pack lam d (ttrans eq' eq)
   exists-pack tlam (tlam d) eq = absurd (TypeReduction.¬-exists-≡ₜ-all (tsym eq))
   exists-pack tlam (type-eq d eq') eq = exists-pack tlam d (ttrans eq' eq)
@@ -64,7 +64,7 @@ module CanonicalForms where
     → Δ ⹁ [] ⊢ t ∶ τ
     → τ ≡ₜ prod τ₁ τ₂
     → Σ (Term _ _ × Term _ _) λ (t₁ , t₂) → Value t₁ × Value t₂ × (t ≡ prod t₁ t₂)
-  prod-prod lam (lam d) eq = absurd (TypeReduction.¬-prod-≡ₜ-arrow (tsym eq))
+  prod-prod lam (lam d _) eq = absurd (TypeReduction.¬-prod-≡ₜ-arrow (tsym eq))
   prod-prod lam (type-eq d eq') eq = prod-prod lam d (ttrans eq' eq)
   prod-prod tlam (tlam d) eq = absurd (TypeReduction.¬-prod-≡ₜ-all (tsym eq))
   prod-prod tlam (type-eq d eq') eq = prod-prod tlam d (ttrans eq' eq)
@@ -82,7 +82,7 @@ module CanonicalForms where
     → Δ ⹁ [] ⊢ t ∶ τ
     → τ ≡ₜ sum τ₁ τ₂
     → Σ (Term _ _) λ t' → Value t' × ((t ≡ left t') ⊎ (t ≡ right t'))
-  sum-either lam (lam d) eq = absurd (TypeReduction.¬-sum-≡ₜ-arrow (tsym eq))
+  sum-either lam (lam d _) eq = absurd (TypeReduction.¬-sum-≡ₜ-arrow (tsym eq))
   sum-either lam (type-eq d eq') eq = sum-either lam d (ttrans eq' eq)
   sum-either tlam (tlam d) eq = absurd (TypeReduction.¬-sum-≡ₜ-all (tsym eq))
   sum-either tlam (type-eq d eq') eq = sum-either tlam d (ttrans eq' eq)
@@ -99,7 +99,7 @@ progress : ∀ {m Δ τ} (t : Term m zero)
   → Δ ⹁ [] ⊢ t ∶ τ
   → Value t ⊎ Σ (Term m zero) (λ t' → t ⟶ t')
 progress (var ()) var
-progress _ (lam _) = inl lam
+progress _ (lam _ _) = inl lam
 progress (app t t') (app d d') with progress t d
 ... | inr (t , step) = inr (_ , app₁ step)
 ... | inl v with CanonicalForms.arrow-lam v d trefl | progress t' d'

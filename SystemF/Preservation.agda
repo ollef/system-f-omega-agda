@@ -169,8 +169,8 @@ module TermTypeRenaming where
     → Δ' ⹁ map (TypeRenaming.subst σ) Γ ⊢ subst σ t ∶ TypeRenaming.subst σ τ
   preserves-type {Γ = Γ} σ var h =
     Eq.subst (λ p → _ ⹁ _ ⊢ _ ∶ p) (lookup-map (TypeRenaming.subst σ) Γ _) var
-  preserves-type σ (lam d) h =
-    lam (preserves-type σ d h)
+  preserves-type σ (lam d d') h =
+    lam (preserves-type σ d h) (preserves-kind σ d' h)
   preserves-type σ (app d d') h =
     app (preserves-type σ d h) (preserves-type σ d' h)
   preserves-type σ (tlam d) h =
@@ -208,8 +208,8 @@ module TermTypeSubst where
     → Δ' ⹁ map (TypeSubst.subst σ) Γ ⊢ subst σ t ∶ TypeSubst.subst σ τ
   preserves-type {Γ = Γ} σ var h =
     Eq.subst (λ p → _ ⹁ _ ⊢ _ ∶ p) (lookup-map (TypeSubst.subst σ) Γ _) var
-  preserves-type σ (lam d) h =
-    lam (preserves-type σ d h)
+  preserves-type σ (lam d d') h =
+    lam (preserves-type σ d h) (preserves-kind σ d' h)
   preserves-type σ (app d d') h =
     app (preserves-type σ d h) (preserves-type σ d' h)
   preserves-type σ (tlam d) h =
@@ -307,7 +307,7 @@ module TermRenaming where
     → Δ ⊢ σ ∶ Γ ⇒ Γ'
     → Δ ⹁ Γ' ⊢ subst σ t ∶ τ
   preserves-type σ var h = lookup-⇒ _ h
-  preserves-type σ (lam d) h = lam (preserves-type (lift 1 σ) d (lift-⇒ h))
+  preserves-type σ (lam d d') h = lam (preserves-type (lift 1 σ) d (lift-⇒ h)) d'
   preserves-type σ (app d d') h = app (preserves-type σ d h) (preserves-type σ d' h)
   preserves-type σ (tlam d) h = tlam (preserves-type (map (λ x → x) σ) d (lift-type-⇒ h))
   preserves-type σ (tapp d d') h = tapp (preserves-type σ d h) d'
@@ -367,7 +367,7 @@ module TermSubst where
     → Δ ⊢ σ ∶ Γ ⇒ Γ'
     → Δ ⹁ Γ' ⊢ subst σ t ∶ τ
   preserves-type σ var h = lookup-⇒ _ h
-  preserves-type σ (lam d) h = lam (preserves-type (lift 1 σ) d (lift-⇒ h))
+  preserves-type σ (lam d d') h = lam (preserves-type (lift 1 σ) d (lift-⇒ h)) d'
   preserves-type σ (app d d') h = app (preserves-type σ d h) (preserves-type σ d' h)
   preserves-type σ (tlam d) h = tlam (preserves-type (map TermTypeSubst.weaken σ) d (lift-type-⇒ h))
   preserves-type σ (tapp d d') h = tapp (preserves-type σ d h) d'

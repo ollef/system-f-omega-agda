@@ -359,7 +359,7 @@ lam-inversion : ∀ {m n} {Δ : TypeContext m} {Γ : TermContext m n} {τ₁ τ�
   → Δ ⹁ Γ ⊢ lam τ₁ t ∶ τ
   → τ ≡ₜ arrow τ₁' τ₂
   → (τ₁ ≡ₜ τ₁') × (Δ ⹁ τ₁ ∷ Γ ⊢ t ∶ τ₂)
-lam-inversion (lam d) eq with confluence-≡ₜ eq
+lam-inversion (lam d _) eq with confluence-≡ₜ eq
 ... | _ , steps , steps' with arrow-preserved steps | arrow-preserved steps'
 ... | _ , refl , steps₁ , steps₂ | _ , refl , steps₁' , steps₂' =
   ttrans (type-reductions-equality steps₁) (tsym (type-reductions-equality steps₁')) ,

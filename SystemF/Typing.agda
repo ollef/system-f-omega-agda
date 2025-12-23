@@ -53,6 +53,7 @@ data _⹁_⊢_∶_ {m n} (Δ : TypeContext m) (Γ : TermContext m n) : Term m n 
     → Δ ⹁ Γ ⊢ var v ∶ lookup Γ v
   lam : ∀ {τ τ' t}
     → Δ ⹁ (τ ∷ Γ) ⊢ t ∶ τ'
+    → Δ ⊢ τ ∶ star
     → Δ ⹁ Γ ⊢ lam τ t ∶ arrow τ τ'
   app : ∀ {τ τ' t t'}
     → Δ ⹁ Γ ⊢ t ∶ arrow τ τ'
